@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>星燼艦隊：星域指揮官 STARFALL COMMANDER</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🪐</text></svg>">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<canvas id="game"></canvas>
+<div id="vignette"></div>
+<div id="whiteflash"></div>
+<canvas id="overlay"></canvas>
+
+<!-- ══════════ 戰場 HUD ══════════ -->
+<div id="hud" class="hidden">
+  <div class="topbar">
+    <div class="res-group">
+      <span class="res">💎 <b id="res-credits">0</b> 星礦 <i id="res-income">+0/s</i></span>
+      <span class="res">🚀 艦隊 <b id="res-supply">0 / 40</b></span>
+      <span class="res" id="res-harv-wrap">⛏ <b id="res-harv">0/0</b></span>
+      <span class="res">⏱ <b id="res-time">0:00</b></span>
+      <span class="res warn hidden" id="res-idle" title="點擊選取並前往"></span>
+      <span class="res dim" id="diff-label">標準戰役</span>
+    </div>
+    <div class="hud-ctrl">
+      <button class="hbtn" id="hb-pause" title="戰術暫停（空白鍵）">⏸</button>
+      <button class="hbtn" id="hb-speed" title="遊戲速度">1×</button>
+      <button class="hbtn" id="hb-sound" title="音效開關">♪</button>
+      <button class="hbtn" id="hb-help" title="作戰手冊">❓</button>
+      <button class="hbtn" id="hb-menu" title="選單（Esc）">☰</button>
+    </div>
+  </div>
+  <div id="alert" class="hidden"></div>
+  <div id="hint" class="hidden"></div>
+  <div id="build-bar"></div>
+  <div id="sel-panel" class="hidden"></div>
+  <canvas id="minimap" width="236" height="160"></canvas>
+</div>
+<div id="toasts"></div>
+
+<!-- ══════════ 主選單 ══════════ -->
+<div id="menu-screen" class="screen">
+  <div class="title-box">
+    <div class="title-sup">REAL-TIME SPACE STRATEGY</div>
+    <h1 class="game-title">星燼艦隊</h1>
+    <div class="title-sub">星域指揮官 · STARFALL COMMANDER</div>
+    <p class="menu-desc">
+      採集星礦 → 建設基地 → 研發升級 → 打造艦隊——<br>
+      在同一片 3D 星域中運籌帷幄，殲滅赤紅兵團的母艦。
+    </p>
+    <div class="diff-row">
+      <button class="diff-btn" id="diff-easy">輕鬆巡航</button>
+      <button class="diff-btn sel" id="diff-normal">標準戰役</button>
+      <button class="diff-btn" id="diff-hard">艱難死鬥</button>
+    </div>
+    <div class="diff-row mode-row">
+      <button class="diff-btn mode-btn sel" id="mode-duel">⚔ 雙方對決</button>
+      <button class="diff-btn mode-btn" id="mode-tri">✦ 三方混戰</button>
+    </div>
+    <p class="mode-note" id="mode-note">雙方對決：擊沉赤紅兵團的母艦即獲勝。</p>
+    <div class="diff-row fog-row">
+      <span class="fog-lbl">戰爭迷霧</span>
+      <button class="diff-btn fog-btn sel" id="fog-on" title="只看得到我方單位與建築視野內的敵人；蓋前哨站、偵察衛星、砲塔擴大視野">開</button>
+      <button class="diff-btn fog-btn" id="fog-off" title="全圖可見（舊玩法）">關</button>
+    </div>
+    <div class="menu">
+      <button class="btn primary big" id="btn-start">開始作戰</button>
+      <button class="btn big" id="btn-menu-help">作戰手冊</button>
+      <a class="btn big ghost" href="classic/index.html">經典純戰鬥版 →</a>
+    </div>
+    <div class="title-foot">純網頁單機遊戲 · 3D 即時戰略 · 建議使用 Chrome / Edge · 滑鼠拖曳可旋轉背景</div>
+  </div>
+</div>
+
+<!-- ══════════ 戰局結束 ══════════ -->
+<div id="end-screen" class="screen hidden">
+  <div class="title-box">
+    <h1 id="end-title">勝　利</h1>
+    <p id="end-sub" class="end-sub"></p>
+    <div class="end-stats" id="end-stats"></div>
+    <div class="menu-row">
+      <button class="btn primary big" id="btn-end-again">再戰一場</button>
+      <button class="btn big ghost" id="btn-end-menu">回主選單</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ 作戰手冊 ══════════ -->
+<div class="modal hidden" id="modal-help">
+  <div class="modal-box">
+    <h2>作戰手冊</h2>
+    <div class="help-cols">
+      <div>
+        <h3>基本操作</h3>
+        <table class="help-table">
+          <tr><td>左鍵 / 拖曳</td><td>選取單位・框選艦隊（可點擊任何物件查看）</td></tr>
+          <tr><td>右鍵</td><td>移動｜點敵軍＝攻擊｜點小行星＝採礦</td></tr>
+          <tr><td>滾輪</td><td>縮放視角（可拉到高空看全局）</td></tr>
+          <tr><td>右鍵「拖曳」</td><td>球形環繞視角（家園式操控；點一下仍是下令）</td></tr>
+          <tr><td>中鍵拖曳 / WASD / 滑鼠貼邊</td><td>平移視角（抓住地圖拖曳，或把滑鼠移到畫面邊緣）</td></tr>
+          <tr><td>Q / E</td><td>旋轉視角</td></tr>
+          <tr><td>V</td><td>切換視角預設（俯瞰／指揮／艦橋低角）</td></tr>
+          <tr><td>F</td><td>鏡頭跟隨選取單位</td></tr>
+          <tr><td>空白鍵</td><td>戰術暫停（暫停中仍可下令）</td></tr>
+          <tr><td>Ctrl+右鍵</td><td>攻擊移動（沿途自動接敵）</td></tr>
+          <tr><td>X</td><td>停止／採礦船恢復自動採礦</td></tr>
+          <tr><td>H</td><td>駐守——原地開火不追擊</td></tr>
+          <tr><td>P → 右鍵</td><td>巡邏：在目前位置與巡邏點間來回，路上遇敵自動交戰（Shift+右鍵連加多點；採礦船不接受）</td></tr>
+          <tr><td>F1 / F2 / F3</td><td>陣型：保持隊形／橫列／楔形（大船居中）——多艘一起移動時生效，多選面板也能點選</td></tr>
+          <tr><td>N / 點警報橫幅</td><td>跳至最近遇襲地點</td></tr>
+          <tr><td>小地圖右鍵</td><td>下令移動（Ctrl＝攻擊移動）</td></tr>
+          <tr><td>選建築＋右鍵</td><td>設定集結點（點礦＝採礦船自動開採）</td></tr>
+          <tr><td>雙擊單位</td><td>選取畫面上所有同型艦</td></tr>
+          <tr><td>Shift+左鍵/框選</td><td>加選／減選</td></tr>
+          <tr><td>Ctrl+1~4 / 1~4</td><td>編隊／叫出編隊（連按兩下跳至該隊）</td></tr>
+          <tr><td>Ctrl+A</td><td>全選所有戰鬥艦（不含採礦船）</td></tr>
+          <tr><td>R Y L T O K</td><td>快速建造：精煉站／船塢／研究站／砲塔／前哨站／偵察衛星</td></tr>
+          <tr><td>B</td><td>選取並跳回母艦</td></tr>
+          <tr><td>G</td><td>戰術網格開關</td></tr>
+        </table>
+      </div>
+      <div>
+        <h3>致勝之道</h3>
+        <ul class="help-tips">
+          <li><b>經濟優先</b>：多造採礦船（母艦生產，上限 8），在礦區旁蓋精煉站縮短往返。<b>金色光尾的就是採礦工作船</b>。</li>
+          <li><b>船塢</b>生產戰艦、<b>研究站</b>升級武器裝甲並解鎖主力艦、<b>砲塔</b>守家。</li>
+          <li>艦種相剋：攔截機蜂群纏鬥重艦｜驅逐艦攔飛彈剋戰機｜巡洋艦與戰列艦是攻堅主力。</li>
+          <li>敵方會定期發動攻勢（會先收到集結警報）——留守備隊，別傾巢而出。</li>
+          <li>中央礦帶單顆礦<b>肥沃 1.5 倍</b>，派護衛艦隊護航採礦船搶佔它。</li>
+          <li><b>受損艦</b>脫戰後開回母艦/精煉站旁自動付費維修；連續擊殺的艦會升級<b>★老兵/★★王牌</b>。</li>
+          <li>擊毀敵艦掉<b>殘料</b>（採礦船自動回收）；打掉敵方採礦船與精煉站會<b>重創敵方收入</b>。</li>
+          <li><b>星盜</b>：中立海盜會定期從星域邊緣來襲，打誰都有可能（盯上你時會響警報，按 N 前往）；擊毀掉落 <b>1.5 倍殘骸</b>。</li>
+          <li><b>戰爭迷霧</b>（主選單可關）：只看得到我方單位與建築<b>視野</b>內的敵人。地圖三種狀態——<b>全黑</b>＝沒去過、<b>灰暗</b>＝去過但現在沒人盯（只記得小行星和上次看到的敵方建築殘影，看不到敵船）、<b>明亮</b>＝目前有視野。視野：母艦 1100、前哨站 1300（研究「前哨網路」再 +400）、砲塔 700、其他建築 600、戰艦 450～700、採礦船 400。迷霧中的敵人點不到、右鍵攻擊無效；我方被打時攻擊者會現形 2 秒並響警報。電腦對手不受迷霧影響（全圖視野）。</li>
+          <li><b>偵察衛星</b>（K，💎150）：無武裝、很脆，但視野 1800——便宜地把遠方礦區、敵軍進攻路線照亮。不提供建造範圍（擴張靠前哨站），上限 30 座。</li>
+          <li>勝利條件：<b>摧毀敵方母艦</b>。你的母艦沉沒即戰敗。</li>
+        </ul>
+      </div>
+    </div>
+    <button class="btn primary" id="btn-help-close">關閉</button>
+  </div>
+</div>
+
+<!-- ══════════ Esc 選單 ══════════ -->
+<div class="modal hidden" id="modal-pause">
+  <div class="modal-box narrow">
+    <h2>作戰暫停</h2>
+    <div class="menu">
+      <button class="btn big primary" id="btn-p-resume">繼續作戰</button>
+      <button class="btn big" id="btn-p-help">作戰手冊</button>
+      <button class="btn big" id="btn-p-sound">音效：開</button>
+      <button class="btn big" id="btn-p-restart">重新開始</button>
+      <button class="btn big danger" id="btn-p-quit">放棄戰局，回主選單</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/lib/three.min.js"></script>
+<script src="js/util.js"></script>
+<script src="js/assets_sfx.js"></script>
+<script src="js/sfx.js"></script>
+<script src="js/data.js"></script>
+<script src="js/assets_ships.js"></script>
+<script src="js/assets_pirates.js"></script>
+<script src="js/assets_kenney.js"></script>
+<script src="js/assets_rocks.js"></script>
+<script src="js/assets_panels.js"></script>
+<script src="js/assets_warehouse.js"></script>
+<script src="js/models.js"></script>
+<script src="js/batch.js"></script>
+<script src="js/fx.js"></script>
+<script src="js/fog.js"></script>
+<script src="js/world.js"></script>
+<script src="js/ai.js"></script>
+<script src="js/input.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/main.js"></script>
+<div id="build-tag" style="position:fixed;right:10px;bottom:6px;font-size:11px;color:#8fa6c4;opacity:.7;z-index:50;pointer-events:auto">線上版 63a6068（2026-10-07）｜<a href="credits.html" style="color:#9fd0ff">素材授權</a></div>
+</body>
+</html>
