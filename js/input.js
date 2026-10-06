@@ -484,28 +484,48 @@ const Input = {
     this.ghost = Models.makeGhost(cls);
     Game.scene.add(this.ghost);
     /* 可建造範圍：每座我方建築畫一圈（前哨站的圈比較大），大地圖上才知道能蓋到哪 */
-    this._rangeRings = new THREE.Group();
-    if (!this._rangeGeo) {
-      this._rangeGeo = new THREE.RingGeometry(0.985, 1, 96);
-      this._rangeGeo.rotateX(-Math.PI / 2);
-      this._rangeMat = new THREE.MeshBasicMaterial({ color: 0x41d9ff, transparent: true, opacity: 0.28, depthWrite: false, side: THREE.DoubleSide });
-      this._rangeMatOP = this._rangeMat.clone(); this._rangeMatOP.color.setHex(0xffd166); this._rangeMatOP.opacity = 0.35;
-    }
-    for (const b of World.blds[0]) {
-      if (b.def.noExpand) continue;   // 偵察衛星不提供建造範圍
-      const r = b.def.buildRange || BUILD_RANGE;
-      const m = new THREE.Mesh(this._rangeGeo, b.def.buildRange ? this._rangeMatOP : this._rangeMat);
-      m.scale.setScalar(r);
-      m.position.set(b.pos.x, -38, b.pos.z);
-      this._rangeRings.add(m);
-    }
+    /* 可建造範圍：把所有建築的範圍圓「聯集」成一塊區域（淡底色＋一條外緣線），不再每座一個圈
+       （10-07 試玩回饋：砲塔一多滿地都是圓圈很干擾）。做法＝低解析 canvas 畫聯集後貼在地面平面上 */
+    this._rangeRings = this._buildRangeArea();
     Game.scene.add(this._rangeRings);
     SFX.click();
+  },
+  _buildRangeArea() {
+    const SCALE = 8;                                   // 每像素 8 個世界單位（地圖 11400×8000 → 1425×1000 px）
+    const cw = Math.ceil(MAP.W * 2 / SCALE), ch = Math.ceil(MAP.H * 2 / SCALE);
+    const px = x => (x + MAP.W) / SCALE, py = z => (z + MAP.H) / SCALE;
+    const items = [];
+    for (const b of World.blds[0]) {
+      if (b.def.noExpand) continue;                    // 偵察衛星不提供建造範圍
+      items.push({ x: px(b.pos.x), y: py(b.pos.z), r: (b.def.buildRange || BUILD_RANGE) / SCALE, op: !!b.def.buildRange });
+    }
+    const circles = (g, grow) => { for (const it of items) { g.beginPath(); g.arc(it.x, it.y, it.r + grow, 0, Math.PI * 2); g.fill(); } };
+    /* 圖層 1：聯集填色（每點只畫一次，不會重疊加深） */
+    const fill = document.createElement('canvas'); fill.width = cw; fill.height = ch;
+    let g = fill.getContext('2d'); g.fillStyle = '#41d9ff'; circles(g, 0);
+    /* 圖層 2：外緣線＝(半徑+線寬) 的聯集 挖掉 半徑 的聯集；前哨站的範圍金色、一般青色 */
+    const edge = document.createElement('canvas'); edge.width = cw; edge.height = ch;
+    g = edge.getContext('2d');
+    for (const it of items) { g.fillStyle = it.op ? '#ffd166' : '#41d9ff'; g.beginPath(); g.arc(it.x, it.y, it.r + 2.2, 0, Math.PI * 2); g.fill(); }
+    g.globalCompositeOperation = 'destination-out'; circles(g, 0);
+    /* 合成 */
+    const cv = document.createElement('canvas'); cv.width = cw; cv.height = ch;
+    g = cv.getContext('2d');
+    g.globalAlpha = 0.10; g.drawImage(fill, 0, 0);
+    g.globalAlpha = 0.75; g.drawImage(edge, 0, 0);
+    const tex = new THREE.CanvasTexture(cv); tex.minFilter = THREE.LinearFilter;
+    const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, depthTest: false, fog: false });
+    const geo = new THREE.PlaneGeometry(MAP.W * 2, MAP.H * 2); geo.rotateX(-Math.PI / 2);   // 平面 +y → 世界 -z，對應 canvas 上緣＝z=-H
+    const m = new THREE.Mesh(geo, mat);
+    m.position.set(0, -38, 0); m.renderOrder = 6;        // 在迷霧平面（renderOrder 5）之上
+    m.userData.dispose = () => { tex.dispose(); mat.dispose(); geo.dispose(); };
+    Game.scene.add(m);
+    return m;
   },
   stopPlace() {
     this.placing = null;
     if (this.ghost) { Game.scene.remove(this.ghost); this.ghost = null; }
-    if (this._rangeRings) { Game.scene.remove(this._rangeRings); this._rangeRings = null; }
+    if (this._rangeRings) { Game.scene.remove(this._rangeRings); if (this._rangeRings.userData.dispose) this._rangeRings.userData.dispose(); this._rangeRings = null; }
   },
 
   update(dt) {
