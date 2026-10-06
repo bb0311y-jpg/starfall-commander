@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-Hant">
+<html lang="zh-Hant" data-scripts="49">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -12,7 +12,7 @@
 <script>
 /* 載入畫面：算 <script src> 的 load／error 事件（捕獲階段），全部完成或 window load 後淡出；某個素材檔失敗就提示用備用外型 */
 (function(){var n=0,fail=0,total=0,done=false;
- function upd(){var t=document.querySelectorAll('script[src]').length;total=t;var el=document.getElementById('boot-total');if(el)el.textContent=t;var nn=document.getElementById('boot-n');if(nn)nn.textContent=n;var f=document.getElementById('boot-fill');if(f)f.style.width=(t?Math.min(100,n/t*100):0)+'%';}
+ function upd(){var fixed=+(document.documentElement.getAttribute('data-scripts')||0);var t=fixed||document.querySelectorAll('script[src]').length;total=t;var el=document.getElementById('boot-total');if(el)el.textContent=t;var nn=document.getElementById('boot-n');if(nn)nn.textContent=n;var f=document.getElementById('boot-fill');if(f)f.style.width=(t?Math.min(100,n/t*100):0)+'%';}
  function finish(){if(done)return;done=true;var b=document.getElementById('boot');if(!b)return;if(fail){var note=document.getElementById('boot-note');if(note)note.textContent='有 '+fail+' 個素材檔載入失敗，該部分改用內建外型（重新整理可再試）';setTimeout(function(){b.classList.add('out');},1600);}else b.classList.add('out');setTimeout(function(){b.remove();},900);}
  document.addEventListener('load',function(e){if(e.target&&e.target.tagName==='SCRIPT'&&e.target.src){n++;upd();}},true);
  document.addEventListener('error',function(e){if(e.target&&e.target.tagName==='SCRIPT'&&e.target.src){n++;fail++;upd();}},true);
@@ -215,6 +215,6 @@
 <script src="js/input.js"></script>
 <script src="js/ui.js"></script>
 <script src="js/main.js"></script>
-<div id="build-tag" style="position:fixed;right:10px;bottom:6px;font-size:11px;color:#8fa6c4;opacity:.7;z-index:50;pointer-events:auto">線上版 427d4b5（2026-10-07）｜<a href="credits.html" style="color:#9fd0ff">素材授權</a></div>
+<div id="build-tag" style="position:fixed;right:10px;bottom:6px;font-size:11px;color:#8fa6c4;opacity:.7;z-index:50;pointer-events:auto">線上版 881b8c1（2026-10-07）｜<a href="credits.html" style="color:#9fd0ff">素材授權</a></div>
 </body>
 </html>
